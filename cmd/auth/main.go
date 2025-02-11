@@ -15,6 +15,7 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"flag"
 	"fmt"
 	"log"
@@ -31,6 +32,7 @@ Update your .netrc file to work with Google Cloud Artifact Registry Go Repositor
 
 Commands:
 
+* go-auth, to be used with the GOAUTH environment variable https://pkg.go.dev/cmd/go@master#hdr-GOAUTH_environment_variable.
 * refresh, to refresh oauth tokens for Artifact Registry Go endpoints.
 * add-locations, to add new regional Artifact Registry Go endpoints to the netrc file.`
 
@@ -42,9 +44,7 @@ func main() {
 	switch os.Args[1] {
 	case "refresh":
 		refreshFlags := flag.NewFlagSet("refresh", flag.ExitOnError)
-		var (
-			token = refreshFlags.String("token", "", "The oauth token to write to the netrc file. Most users should not set this field and let the tool find the credentials to use from the environment.")
-		)
+		token := refreshFlags.String("token", "", "The oauth token to write to the netrc file. Most users should not set this field and let the tool find the credentials to use from the environment.")
 		refreshFlags.Parse(os.Args[2:])
 		refresh(*token)
 	case "add-locations":
@@ -56,11 +56,30 @@ func main() {
 		)
 		addLocationFlags.Parse(os.Args[2:])
 		addLocations(*locations, *jsonKey, *hostPattern)
+	case "go-auth":
+		goAuthFlags := flag.NewFlagSet("go-auth", flag.ExitOnError)
+		prefix := goAuthFlags.String("prefix", "", "The url prefix which you want the authentication token to be included in. e.g. https://us-go.pkg.dev/my-project")
+		goAuthFlags.Parse(os.Args[2:])
+		goAuth(*prefix)
 	case "help", "-help", "--help":
 		fmt.Println(help)
 	default:
 		fmt.Printf("unknown command %q. Please rerun the tool with `--help`\n", os.Args[1])
 	}
+}
+
+func goAuth(prefix string) {
+	ctx := context.Background()
+	token, err := auth.Token(ctx)
+	if err != nil {
+		log.Println(err)
+		os.Exit(1)
+	}
+	basicAuthValue := base64.StdEncoding.EncodeToString([]byte("oauth2accesstoken" + ":" + token))
+	fmt.Printf(
+		"%s\n\nAuthorization: Basic %s\n\n",
+		prefix, basicAuthValue,
+	)
 }
 
 func refresh(token string) {
