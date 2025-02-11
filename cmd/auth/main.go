@@ -70,6 +70,10 @@ func main() {
 
 func goAuth(prefix string) {
 	ctx := context.Background()
+	if prefix == "" {
+		log.Println("-prefix is required.")
+		os.Exit(1)
+	}
 	token, err := auth.Token(ctx)
 	if err != nil {
 		log.Println(err)
